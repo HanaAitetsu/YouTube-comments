@@ -83,7 +83,7 @@ async function fetchChatLoop() {
 
   const res = await fetch(url);
   const data = await res.json();
-  
+
   nextPageToken = data.nextPageToken;
   pollingInterval = data.pollingIntervalMillis || 5000;
 
