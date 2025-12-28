@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube ライブコメント表示（原文）</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    #comments {
+      max-width: 600px;
+      margin: auto;
+    }
+    .comment {
+      border-bottom: 1px solid #333;
+      padding: 6px 0;
+    }
+    .author {
+      color: #4fc3f7;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<h2>YouTube ライブコメント表示（原文）</h2>
+
+<input id="videoId" placeholder="動画ID（例：abc123XYZ）">
+<button onclick="start()">開始</button>
+
+<div id="comments"></div>
+
+<script>
+const API_KEY = "AIzaSyABeIrmDX6-ytlEFkqvakC1QE66NrvvSsE";
+
+let liveChatId = null;
+let nextPageToken = null;
+let pollingInterval = 5000;
+
+// ------------------------------
+// コメント取得開始
+// ------------------------------
+async function start() {
+  const videoId = document.getElementById("videoId").value;
+  await fetchLiveChatId(videoId);
+  fetchChatLoop();
+}
+
+// ------------------------------
+// ライブチャットID取得
+// ------------------------------
+async function fetchLiveChatId(videoId) {
+  const url =
+    `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${videoId}&key=${API_KEY}`;
+  
+  const res = await fetch(url);
+  const data = await res.json();
+  
+  if (!data.items || !data.items[0]?.liveStreamingDetails?.activeLiveChatId) {
+    alert("ライブ配信中の動画ではありません！");
+    return;
+  }
+
+  liveChatId = data.items[0].liveStreamingDetails.activeLiveChatId;
+  console.log("liveChatId:", liveChatId);
+}
+
+// ------------------------------
+// チャットを定期的に取得
+// ------------------------------
+async function fetchChatLoop() {
+  if (!liveChatId) return;
+
+  let url =
+    `https://www.googleapis.com/youtube/v3/liveChat/messages?part=snippet,authorDetails&liveChatId=${liveChatId}&key=${API_KEY}`;
+  
+  if (nextPageToken) {
+    url += `&pageToken=${nextPageToken}`;
+  }
+
+  const res = await fetch(url);
+  const data = await res.json();
+  
+  nextPageToken = data.nextPageToken;
+  pollingInterval = data.pollingIntervalMillis || 5000;
+
+  if (data.items) {
+    data.items.forEach(addComment);
+  }
+
+  setTimeout(fetchChatLoop, pollingInterval);
+}
+
+// ------------------------------
+// コメントを画面に追加
+// ------------------------------
+function addComment(item) {
+  // コメント以外のメッセージ（スタンプ等）は無視
+  if (item.snippet.type !== "textMessageEvent") return;
+
+  const original = item.snippet.displayMessage;
+  const author = item.authorDetails.displayName;
+
+  const div = document.createElement("div");
+  div.className = "comment";
+  
+  div.innerHTML = `
+    <div class="author">${author}</div>
+    <div>${original}</div>
+  `;
+
+  // 新しいコメントを上に積む
+  document.getElementById("comments").prepend(div);
+}
+</script>
+
+</body>
+</html>
